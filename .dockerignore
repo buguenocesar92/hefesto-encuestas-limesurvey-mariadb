@@ -1,0 +1,4 @@
+.env
+backups/
+.git/
+__pycache__/

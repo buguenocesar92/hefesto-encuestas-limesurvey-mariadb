@@ -1,0 +1,15 @@
+# Aceptación en VPS · pendiente
+- [ ] Build y Compose correctos; instalación/migraciones terminan; contenedores saludables.
+- [ ] Admin privado, clave cambiada, usuarios nominales y permisos por encuesta.
+- [ ] HTTPS sin bucles; dominio y enlaces correctos; sin puertos públicos DB/app.
+- [ ] Crear encuesta de prueba en español, preguntas obligatorias, condicionales y cierre.
+- [ ] Vista previa y envío desde móvil/escritorio; respuestas guardadas correctamente.
+- [ ] Editor/analista no acceden a encuestas de otro equipo sin autorización.
+- [ ] Encuesta con participantes prueba token válido/inválido, repetición y cierre.
+- [ ] Exportar CSV y archivo de encuesta; contrastar códigos, conteos y textos.
+- [ ] Probar anonimato configurado y revisar logs/metadatos antes de prometerlo.
+- [ ] Reiniciar/recrear app conserva encuestas, temas, archivos y security.php.
+- [ ] Campo cifrado de prueba legible después de restauración en un destino vacío.
+- [ ] SMTP probado si se contrata; ninguna campaña enviada sin lista autorizada.
+- [ ] Restauración completa ensayada; backup externo y monitorización configurados.
+- [ ] Capacidad medida con concurrencia esperada, retención y acceso aprobados.

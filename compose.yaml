@@ -1,0 +1,55 @@
+name: ${COMPOSE_PROJECT_NAME:?Ejecutar configure.py}
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: limesurvey
+      MARIADB_USER: limesurvey
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Falta clave}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Falta clave}
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+  app:
+    build: .
+    image: hefesto-encuestas:${IMAGE_TAG:-7.5.1-261007}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_TYPE: mysql
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_NAME: limesurvey
+      DB_USERNAME: limesurvey
+      DB_PASSWORD: ${DB_PASSWORD:?Falta clave}
+      DB_MYSQL_ENGINE: InnoDB
+      ADMIN_USER: admin
+      ADMIN_NAME: Administrador
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?Falta correo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Falta clave inicial}
+      HOST_INFO: https://${SURVEY_HOST:?Falta dominio}
+    volumes:
+      - upload:/var/www/html/upload
+      - config:/var/www/html/application/config
+    expose: ['8080']
+    healthcheck:
+      test: [CMD, curl, -f, -sS, -o, /dev/null, 'http://127.0.0.1:8080/index.php?r=admin/authentication/sa/login']
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 120s
+volumes:
+  db:
+    name: ${VOLUME_PREFIX:?Falta prefijo}-db
+  upload:
+    name: ${VOLUME_PREFIX:?Falta prefijo}-upload
+  config:
+    name: ${VOLUME_PREFIX:?Falta prefijo}-config
