@@ -37,6 +37,6 @@ Variables que Coolify debe inyectar (mínimo indispensable):
 | `DB_ROOT_PASSWORD` | Clave del rol `root` de MariaDB. | secreta |
 | `IMAGE_TAG` | (Opcional) Tag de la imagen `hefesto-encuestas`. Por defecto `7.5.1-261007`. | pública |
 
-`COMPOSE_PROJECT_NAME` y `VOLUME_PREFIX` ya no son obligatorios: Coolify pone su propio nombre de proyecto y los volúmenes se nombran automáticamente. Si vienes desde el flujo tradicional (`scripts/configure.py`), basta con dejar el `.env` que ese script genera.
+`VOLUME_PREFIX` es opcional: por defecto vale `hefesto-encuestas`, que conserva los nombres de volumen del flujo tradicional (`scripts/configure.py`), de modo que las instalaciones existentes siguen encontrando sus datos tras actualizar. Si vienes desde ese flujo, basta con dejar el `.env` que ese script genera. `COMPOSE_PROJECT_NAME` lo fija Coolify y no hace falta exportarlo.
 
 Tras el primer arranque, completar `docs/despliegue.md`. SMTP se configura dentro de LimeSurvey una vez iniciada la sesión (PHP mail está deshabilitado en `ops/php.ini`); si la app necesita correo, configurarlo antes de habilitar envíos.

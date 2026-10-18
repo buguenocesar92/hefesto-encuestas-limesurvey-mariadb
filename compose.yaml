@@ -49,5 +49,8 @@ services:
       start_period: 120s
 volumes:
   db:
+    name: ${VOLUME_PREFIX:-hefesto-encuestas}-db
   upload:
+    name: ${VOLUME_PREFIX:-hefesto-encuestas}-upload
   config:
+    name: ${VOLUME_PREFIX:-hefesto-encuestas}-config
