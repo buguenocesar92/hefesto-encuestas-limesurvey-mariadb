@@ -1,4 +1,5 @@
-name: ${COMPOSE_PROJECT_NAME:?Ejecutar configure.py}
+# Nombre del proyecto Coolify (o el exportador tradicional): lo fija Coolify.
+# En el uso local con configure.py, exporta COMPOSE_PROJECT_NAME en .env.
 services:
   db:
     image: mariadb:11.4
@@ -6,8 +7,8 @@ services:
     environment:
       MARIADB_DATABASE: limesurvey
       MARIADB_USER: limesurvey
-      MARIADB_PASSWORD: ${DB_PASSWORD:?Falta clave}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Falta clave}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     volumes:
       - db:/var/lib/mysql
     healthcheck:
@@ -29,13 +30,13 @@ services:
       DB_PORT: '3306'
       DB_NAME: limesurvey
       DB_USERNAME: limesurvey
-      DB_PASSWORD: ${DB_PASSWORD:?Falta clave}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_MYSQL_ENGINE: InnoDB
       ADMIN_USER: admin
       ADMIN_NAME: Administrador
-      ADMIN_EMAIL: ${ADMIN_EMAIL:?Falta correo}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Falta clave inicial}
-      HOST_INFO: https://${SURVEY_HOST:?Falta dominio}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      HOST_INFO: https://${SURVEY_HOST}
     volumes:
       - upload:/var/www/html/upload
       - config:/var/www/html/application/config
@@ -48,8 +49,5 @@ services:
       start_period: 120s
 volumes:
   db:
-    name: ${VOLUME_PREFIX:?Falta prefijo}-db
   upload:
-    name: ${VOLUME_PREFIX:?Falta prefijo}-upload
   config:
-    name: ${VOLUME_PREFIX:?Falta prefijo}-config
