@@ -24,7 +24,7 @@ Revisión estática realizada. No desplegado ni probado con Docker/PHP en este e
 
 ## Despliegue en Coolify (MVP Hefesto)
 
-Coolify detecta `compose.yaml` y construye el stack detrás de Traefik (TLS y dominio automáticos). El compose ya no declara `name:` a nivel raíz ni `name:` en volúmenes, y todo lo que toca el host quedó fuera: el servicio `app` se expone solo en `8080` y la base no se publica.
+Coolify detecta `compose.yaml` y construye el stack detrás de Traefik (TLS y dominio automáticos). El compose ya no declara `name:` a nivel raíz; los volúmenes sí declaran `name:` con prefijo `${VOLUME_PREFIX:-hefesto-encuestas}-…` (ver tabla siguiente) para conservar los nombres del flujo tradicional, y todo lo que toca el host quedó fuera: el servicio `app` se expone solo en `8080` y la base no se publica.
 
 Variables que Coolify debe inyectar (mínimo indispensable):
 
