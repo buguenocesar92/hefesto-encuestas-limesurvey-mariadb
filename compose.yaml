@@ -7,8 +7,8 @@ services:
     environment:
       MARIADB_DATABASE: limesurvey
       MARIADB_USER: limesurvey
-      MARIADB_PASSWORD: ${DB_PASSWORD}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Falta clave}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Falta clave}
     volumes:
       - db:/var/lib/mysql
     healthcheck:
@@ -30,13 +30,13 @@ services:
       DB_PORT: '3306'
       DB_NAME: limesurvey
       DB_USERNAME: limesurvey
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?Falta clave}
       DB_MYSQL_ENGINE: InnoDB
       ADMIN_USER: admin
       ADMIN_NAME: Administrador
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      HOST_INFO: https://${SURVEY_HOST}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?Falta correo}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Falta clave inicial}
+      HOST_INFO: https://${SURVEY_HOST:?Falta dominio}
     volumes:
       - upload:/var/www/html/upload
       - config:/var/www/html/application/config
