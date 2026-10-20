@@ -1,4 +1,5 @@
-name: ${COMPOSE_PROJECT_NAME:?Ejecutar configure.py}
+# Nombre del proyecto Coolify (o el exportador tradicional): lo fija Coolify.
+# En el uso local con configure.py, exporta COMPOSE_PROJECT_NAME en .env.
 services:
   db:
     image: mariadb:11.4
@@ -48,8 +49,8 @@ services:
       start_period: 120s
 volumes:
   db:
-    name: ${VOLUME_PREFIX:?Falta prefijo}-db
+    name: ${VOLUME_PREFIX:-hefesto-encuestas}-db
   upload:
-    name: ${VOLUME_PREFIX:?Falta prefijo}-upload
+    name: ${VOLUME_PREFIX:-hefesto-encuestas}-upload
   config:
-    name: ${VOLUME_PREFIX:?Falta prefijo}-config
+    name: ${VOLUME_PREFIX:-hefesto-encuestas}-config
