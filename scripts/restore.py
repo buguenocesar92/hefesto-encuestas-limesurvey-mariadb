@@ -1,36 +1,103 @@
 #!/usr/bin/env python3
-import hashlib,json,os,subprocess,sys,tarfile
-from pathlib import Path,PurePosixPath
-root=Path(__file__).resolve().parents[1];os.chdir(root)
-if len(sys.argv)!=2:raise SystemExit('Uso: python3 scripts/restore.py /ruta/respaldo')
-p=Path(sys.argv[1]).resolve();m=json.loads((p/'manifest.json').read_text())
-required={'database.sql','upload.tar.gz','config.tar.gz','.env','compose.yaml','Dockerfile'}
-if m.get('status')!='completed' or set(m.get('sha256',{}))!=required:raise SystemExit('Manifest incompleto')
-for name in required:
-    with (p/name).open('rb') as f:
-        if hashlib.file_digest(f,'sha256').hexdigest()!=m['sha256'][name]:raise SystemExit('Hash incorrecto: '+name)
-for name in ['upload','config']:
-    with tarfile.open(p/(name+'.tar.gz')) as tf:
-        for member in tf:
-            if PurePosixPath(member.name).is_absolute() or '..' in PurePosixPath(member.name).parts or not(member.isfile() or member.isdir()):raise SystemExit('Tipo/ruta de archivo no admitido: '+member.name)
-def dc(*a,**kw):return subprocess.run(['docker','compose',*a],check=True,**kw)
-def run(*a,**kw):return subprocess.run(['docker',*a],check=True,**kw)
-if not (root/'.env').is_file():raise SystemExit('Preparar .env del destino')
-if dc('ps','--status','running','-q','app',capture_output=True,text=True).stdout.strip():raise SystemExit('app debe estar detenida')
-c=json.loads(dc('config','--format','json',capture_output=True,text=True).stdout)
-image=c['services']['app']['image']
-count=dc('exec','-T','db','sh','-c','MYSQL_PWD="$MARIADB_PASSWORD" mariadb -u "$MARIADB_USER" -N -B "$MARIADB_DATABASE" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()"',capture_output=True,text=True).stdout.strip()
-if count!='0':raise SystemExit('Base no vacía; no se sobrescribe')
-mounts={}
-for name in ['upload','config']:
-    v=c['volumes'][name]['name'];run('volume','create',v,capture_output=True)
-    mount='type=volume,src='+v+',dst=/restore,volume-nocopy';mounts[name]=mount
-    found=run('run','--rm','--user','0','--entrypoint','find','--mount',mount,image,'/restore','-mindepth','1','-maxdepth','1',capture_output=True,text=True).stdout.strip()
-    if found:raise SystemExit('Volumen no vacío: '+name)
-with (p/'database.sql').open('rb') as f:
-    dc('exec','-T','db','sh','-c','MYSQL_PWD="$MARIADB_PASSWORD" mariadb -u "$MARIADB_USER" "$MARIADB_DATABASE"',stdin=f)
-for name in ['upload','config']:
-    with (p/(name+'.tar.gz')).open('rb') as f:
-        run('run','--rm','-i','--user','0','--entrypoint','tar','--mount',mounts[name],image,'-xzf','-','-C','/restore',stdin=f)
-    run('run','--rm','--user','0','--entrypoint','chown','--mount',mounts[name],image,'-R','33:33','/restore')
-print('Restaurado. Iniciar app y ejecutar aceptación. Ante fallo parcial usar destinos nuevos.')
+"""Restauracion de hefesto-encuestas (LimeSurvey + MariaDB) en un destino nuevo y vacio.
+
+Sin --confirmar CONFIRMAR_RESTAURACION no se escribe nada; con --dry-run se
+simula. Exige destino vacio, verifica los sha256 del manifiesto y deja
+restore-report.json y registro de auditoria.
+"""
+import os
+import subprocess
+import sys
+import tarfile
+import tempfile
+from pathlib import Path, PurePosixPath
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from respaldo_contrato import (RespaldoError, auditar, descifrar_con_age, ejecutar,
+                               ejecutar_check, escribir_informe, opciones_restore)
+
+SOFTWARE = "hefesto-encuestas"
+VERSION = "7.5.1+261007"
+DATABASE = "mariadb"
+RAIZ = Path(__file__).resolve().parents[1]
+os.chdir(RAIZ)
+os.umask(0o077)
+PROHIBIDOS = ["upload.tar.gz", "config.tar.gz"]
+VOLUMENES = [
+    {
+        "nombre": "upload",
+        "artefacto": "upload.tar.gz",
+        "ruta": "/var/www/html/upload"
+    },
+    {
+        "nombre": "config",
+        "artefacto": "config.tar.gz",
+        "ruta": "/var/www/html/application/config"
+    }
+]
+
+
+def dc(*args, **kw):
+    return subprocess.run(["docker", "compose", *args], check=True, **kw)
+
+
+def main():
+    modo, origen = opciones_restore(sys.argv[1:])
+    origen = Path(origen).resolve()
+    ejecutar_check(str(origen), SOFTWARE, VERSION, DATABASE, prohibidos=PROHIBIDOS)
+    if modo == "dry-run":
+        print("Simulacion: el respaldo es integro y no se escribio nada.")
+        print("Para restaurar de verdad: --confirmar CONFIRMAR_RESTAURACION")
+        return 0
+    if dc("ps", "--status", "running", "-q", "app",
+          capture_output=True, text=True).stdout.strip():
+        raise RespaldoError("app esta activa en el destino; detenerla antes de restaurar", 5)
+    if not (RAIZ / ".env").is_file():
+        raise RespaldoError("Preparar el .env del destino: no viaja en el respaldo", 5)
+    count = dc("exec", "-T", "db", "sh", "-c",
+               'MYSQL_PWD="$MARIADB_PASSWORD" mariadb -u "$MARIADB_USER" -N -B '
+               '"$MARIADB_DATABASE" -e "SELECT COUNT(*) FROM information_schema.tables '
+               'WHERE table_schema=DATABASE()"',
+               capture_output=True, text=True).stdout.strip()
+    if count != "0":
+        raise RespaldoError("La base del destino no esta vacia; no se sobrescribe", 5)
+    for vol in VOLUMENES:
+        encontrado = dc("run", "--rm", "--no-deps", "-T", "--user", "0", "--entrypoint", "find",
+                        "app", vol["ruta"], "-mindepth", "1", "-maxdepth", "1",
+                        capture_output=True, text=True).stdout.strip()
+        if encontrado:
+            raise RespaldoError("El volumen " + vol["nombre"] +
+                                " del destino no esta vacio; usar destino nuevo", 5)
+
+    with (origen / "database.sql").open("rb") as f:
+        dc("exec", "-T", "db", "sh", "-c",
+           'MYSQL_PWD="$MARIADB_PASSWORD" mariadb -u "$MARIADB_USER" "$MARIADB_DATABASE"',
+           stdin=f)
+    for vol in VOLUMENES:
+        cifrado = origen / (vol["artefacto"] + ".age")
+        if not cifrado.is_file():
+            raise RespaldoError("El respaldo no trae " + vol["artefacto"] +
+                                " cifrado: hace falta el receptor age", 5)
+        with tempfile.TemporaryDirectory(prefix="hefesto-restore-") as d:
+            plano = Path(d) / vol["artefacto"]
+            descifrar_con_age(cifrado, plano)
+            with tarfile.open(plano) as tf:
+                for member in tf:
+                    ruta = PurePosixPath(member.name)
+                    if (ruta.is_absolute() or ".." in ruta.parts
+                            or not (member.isfile() or member.isdir())):
+                        raise RespaldoError("Ruta o tipo no admitido: " + member.name, 5)
+            with plano.open("rb") as f:
+                dc("run", "--rm", "--no-deps", "-T", "--user", "0", "--entrypoint", "tar",
+                   "app", "-xzf", "-", "-C", vol["ruta"], stdin=f)
+
+    escribir_informe(origen, software=SOFTWARE, version=VERSION, database=DATABASE,
+                     modo="confirmado", resultado="restaurado", destino=str(RAIZ))
+    auditar(RAIZ, operacion="restore", kit=SOFTWARE, origen=str(origen), destino=str(RAIZ),
+            resultado="restaurado")
+    print("Restaurado. Iniciar la aplicacion y ejecutar la aceptacion.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(ejecutar(main))
